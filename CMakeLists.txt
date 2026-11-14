@@ -36,6 +36,9 @@ find_package(tf2_geometry_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(yaml_cpp_vendor REQUIRED)
 find_package(yaml-cpp REQUIRED)
+find_package(mp-units REQUIRED)
+find_package(fcarouge-typed-linear-algebra REQUIRED)
+find_package(fcarouge-sparse-linear-algebra REQUIRED)
 
 # Geographiclib installs FindGeographicLib.cmake to this non-standard location
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "/usr/share/cmake/geographiclib/")
@@ -102,6 +105,9 @@ target_link_libraries(${library_name} PUBLIC
 target_link_libraries(${library_name} PRIVATE
   ${GeographicLib_LIBRARIES}
   yaml-cpp::yaml-cpp
+  mp-units::mp-units
+  fcarouge-typed-linear-algebra::tlinalg
+  fcarouge-sparse-linear-algebra::slinalg
 )
 target_compile_definitions(${library_name} PRIVATE
   $<$<CXX_COMPILER_ID:MSVC>:_USE_MATH_DEFINES>

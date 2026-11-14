@@ -78,6 +78,7 @@
 #include <tf2_ros/buffer.hpp>
 #include <tf2_ros/transform_broadcaster.hpp>
 #include <tf2_ros/transform_listener.hpp>
+#include "typed_covariance.hpp"
 
 namespace robot_localization
 {
@@ -3106,17 +3107,9 @@ bool RosFilter<T>::prepareAcceleration(
     // upper-left and lower-right quadrants, and zeros
     // elsewhere
     tf2::Matrix3x3 rot(target_frame_trans.getRotation());
-    Eigen::MatrixXd rot3d(ACCELERATION_SIZE, ACCELERATION_SIZE);
-    rot3d.setIdentity();
 
-    for (size_t r_ind = 0; r_ind < ACCELERATION_SIZE; ++r_ind) {
-      rot3d(r_ind, 0) = rot.getRow(r_ind).getX();
-      rot3d(r_ind, 1) = rot.getRow(r_ind).getY();
-      rot3d(r_ind, 2) = rot.getRow(r_ind).getZ();
-    }
-
-    // Carry out the rotation
-    covariance_rotated = rot3d * covariance_rotated.eval() * rot3d.transpose();
+    // Carry out the rotation, the covariance in (m/s^2)^2
+    covariance_rotated = typed_covariance::rotate_acceleration(covariance_rotated, rot);
 
     RF_DEBUG("Transformed covariance is \n" << covariance_rotated << "\n");
 
@@ -3337,28 +3330,16 @@ bool RosFilter<T>::preparePose(
     // contains a 3D rotation matrix in the upper-left and lower-right
     // quadrants, with zeros elsewhere.
     tf2::Matrix3x3 rot;
-    Eigen::MatrixXd rot6d(POSE_SIZE, POSE_SIZE);
-    rot6d.setIdentity();
     Eigen::MatrixXd covariance_rotated;
 
     // Transform pose covariance due to a different pose source origin
     if (can_src_transform) {
       // (source_frame != base_link_frame_id_) already satisfied
       rot.setRotation(source_frame_trans.getRotation());
-      for (size_t r_ind = 0; r_ind < POSITION_SIZE; ++r_ind) {
-        // let's borrow rot6d here...
-        rot6d(r_ind, 0) = rot.getRow(r_ind).getX();
-        rot6d(r_ind, 1) = rot.getRow(r_ind).getY();
-        rot6d(r_ind, 2) = rot.getRow(r_ind).getZ();
-        rot6d(r_ind + POSITION_SIZE, 3) = rot.getRow(r_ind).getX();
-        rot6d(r_ind + POSITION_SIZE, 4) = rot.getRow(r_ind).getY();
-        rot6d(r_ind + POSITION_SIZE, 5) = rot.getRow(r_ind).getZ();
-      }
-      // since the transformation is a post-multiply
-      covariance = rot6d.transpose() * covariance.eval() * rot6d;
+      // since the transformation is a post-multiply: R^T C R, the rotation by the transpose
+      covariance = typed_covariance::rotate<typed_covariance::metre, typed_covariance::radian>(
+        covariance, rot.transpose());
     }
-    // return rot6d to its initial state.
-    rot6d.setIdentity();
 
     if (imu_data) {
       // Apply the same special logic to the IMU covariance rotation
@@ -3369,17 +3350,9 @@ bool RosFilter<T>::preparePose(
       rot.setRotation(target_frame_trans.getRotation());
     }
 
-    for (size_t r_ind = 0; r_ind < POSITION_SIZE; ++r_ind) {
-      rot6d(r_ind, 0) = rot.getRow(r_ind).getX();
-      rot6d(r_ind, 1) = rot.getRow(r_ind).getY();
-      rot6d(r_ind, 2) = rot.getRow(r_ind).getZ();
-      rot6d(r_ind + POSITION_SIZE, 3) = rot.getRow(r_ind).getX();
-      rot6d(r_ind + POSITION_SIZE, 4) = rot.getRow(r_ind).getY();
-      rot6d(r_ind + POSITION_SIZE, 5) = rot.getRow(r_ind).getZ();
-    }
-
-    // Now carry out the rotation
-    covariance_rotated = rot6d * covariance * rot6d.transpose();
+    // Now carry out the rotation, the pose covariance in m^2, m rad, rad^2
+    covariance_rotated =
+      typed_covariance::rotate<typed_covariance::metre, typed_covariance::radian>(covariance, rot);
 
     RF_DEBUG(
       "After rotating into the " << final_target_frame <<
@@ -3527,8 +3500,8 @@ bool RosFilter<T>::preparePose(
         // covariance to the previous measurement's rotated covariance, and
         // multiply by the time delta.
         Eigen::MatrixXd prev_covar_rotated =
-          rot6d * previous_measurement_covariances_[topic_name] *
-          rot6d.transpose();
+          typed_covariance::rotate<typed_covariance::metre, typed_covariance::radian>(
+          previous_measurement_covariances_[topic_name], rot);
         covariance_rotated =
           (covariance_rotated.eval() + prev_covar_rotated) * dt;
         copyCovariance(
@@ -3722,20 +3695,11 @@ bool RosFilter<T>::prepareTwist(
     // upper-left and lower-right quadrants, and zeros
     // elsewhere
     tf2::Matrix3x3 rot(target_frame_trans.getRotation());
-    Eigen::MatrixXd rot6d(TWIST_SIZE, TWIST_SIZE);
-    rot6d.setIdentity();
 
-    for (size_t r_ind = 0; r_ind < POSITION_SIZE; ++r_ind) {
-      rot6d(r_ind, 0) = rot.getRow(r_ind).getX();
-      rot6d(r_ind, 1) = rot.getRow(r_ind).getY();
-      rot6d(r_ind, 2) = rot.getRow(r_ind).getZ();
-      rot6d(r_ind + POSITION_SIZE, 3) = rot.getRow(r_ind).getX();
-      rot6d(r_ind + POSITION_SIZE, 4) = rot.getRow(r_ind).getY();
-      rot6d(r_ind + POSITION_SIZE, 5) = rot.getRow(r_ind).getZ();
-    }
-
-    // Carry out the rotation
-    covariance_rotated = rot6d * covariance_rotated.eval() * rot6d.transpose();
+    // Carry out the rotation, the twist covariance in (m/s)^2, m rad/s^2, (rad/s)^2
+    covariance_rotated = typed_covariance::rotate<
+      typed_covariance::metre / typed_covariance::second,
+      typed_covariance::radian / typed_covariance::second>(covariance_rotated, rot);
 
     RF_DEBUG("Transformed covariance is \n" << covariance_rotated << "\n");
 
