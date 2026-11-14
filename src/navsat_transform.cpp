@@ -58,6 +58,7 @@
 #include <tf2_ros/buffer.hpp>
 #include <tf2_ros/transform_listener.hpp>
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
+#include "typed_covariance.hpp"
 
 using std::placeholders::_1;
 using std::placeholders::_2;
@@ -947,21 +948,11 @@ bool NavSatTransform::prepareFilteredGps(
 
     // Rotate the covariance as well
     tf2::Matrix3x3 rot(cartesian_world_trans_inverse_.getRotation());
-    Eigen::MatrixXd rot_6d(POSE_SIZE, POSE_SIZE);
-    rot_6d.setIdentity();
 
-    for (size_t rInd = 0; rInd < POSITION_SIZE; ++rInd) {
-      rot_6d(rInd, 0) = rot.getRow(rInd).getX();
-      rot_6d(rInd, 1) = rot.getRow(rInd).getY();
-      rot_6d(rInd, 2) = rot.getRow(rInd).getZ();
-      rot_6d(rInd + POSITION_SIZE, 3) = rot.getRow(rInd).getX();
-      rot_6d(rInd + POSITION_SIZE, 4) = rot.getRow(rInd).getY();
-      rot_6d(rInd + POSITION_SIZE, 5) = rot.getRow(rInd).getZ();
-    }
-
-    // Rotate the covariance
+    // Rotate the covariance, in m², m rad, rad²
     latest_odom_covariance_ =
-      rot_6d * latest_odom_covariance_.eval() * rot_6d.transpose();
+      typed_covariance::rotate<typed_covariance::metre, typed_covariance::radian>(
+      latest_odom_covariance_, rot);
 
     // Copy the measurement's covariance matrix back
     for (size_t i = 0; i < POSITION_SIZE; i++) {
@@ -1005,21 +996,11 @@ bool NavSatTransform::prepareGpsOdometry(nav_msgs::msg::Odometry * gps_odom)
 
     // Rotate the covariance as well
     tf2::Matrix3x3 rot(cartesian_world_transform_.getRotation());
-    Eigen::MatrixXd rot_6d(POSE_SIZE, POSE_SIZE);
-    rot_6d.setIdentity();
 
-    for (size_t rInd = 0; rInd < POSITION_SIZE; ++rInd) {
-      rot_6d(rInd, 0) = rot.getRow(rInd).getX();
-      rot_6d(rInd, 1) = rot.getRow(rInd).getY();
-      rot_6d(rInd, 2) = rot.getRow(rInd).getZ();
-      rot_6d(rInd + POSITION_SIZE, 3) = rot.getRow(rInd).getX();
-      rot_6d(rInd + POSITION_SIZE, 4) = rot.getRow(rInd).getY();
-      rot_6d(rInd + POSITION_SIZE, 5) = rot.getRow(rInd).getZ();
-    }
-
-    // Rotate the covariance
+    // Rotate the covariance, in m², m rad, rad²
     latest_cartesian_covariance_ =
-      rot_6d * latest_cartesian_covariance_.eval() * rot_6d.transpose();
+      typed_covariance::rotate<typed_covariance::metre, typed_covariance::radian>(
+      latest_cartesian_covariance_, rot);
 
     // Now fill out the message. Set the orientation to the identity.
     tf2::toMsg(transformed_cartesian_robot, gps_odom->pose.pose);
