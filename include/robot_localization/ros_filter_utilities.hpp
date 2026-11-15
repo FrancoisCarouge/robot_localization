@@ -124,6 +124,17 @@ void quatToRPY(
   const tf2::Quaternion & quat, double & roll, double & pitch,
   double & yaw);
 
+//! @brief The covariance of the velocity a differential pose source gives: the difference of
+//! two independent poses over their time difference, (Σ + Σ_previous) / dt²
+//! @param[in] current - The covariance of the current pose, rotated into the target frame
+//! @param[in] previous - The covariance of the previous pose, rotated into the target frame
+//! @param[in] dt - The time difference of the two poses, in seconds
+//! @return The covariance of the twist
+//!
+Eigen::MatrixXd differentialTwistCovariance(
+  const Eigen::MatrixXd & current,
+  const Eigen::MatrixXd & previous, double dt);
+
 //! @brief Converts our Eigen state vector into a TF transform/pose
 //! @param[in] state - The state to convert
 //! @param[out] stateTF - The converted state

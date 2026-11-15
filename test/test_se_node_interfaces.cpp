@@ -799,6 +799,13 @@ TEST(InterfacesTest, ImuDifferentialIO) {
     set_rate.sleep();
   }
 
+  // A confident differential source, as in the odometry and pose differential tests: the
+  // velocity of two orientations dt apart has the variance (σ² + σ²_previous) / dt², 16 (rad/s)²
+  // from 0.02 rad² at 20 Hz, too uncertain to move the filter.
+  imu.orientation_covariance[0] = 1e-6;
+  imu.orientation_covariance[4] = 1e-6;
+  imu.orientation_covariance[8] = 1e-6;
+
   // Send the exact same message. The imu3 source is differential, so the output should not change.
   size_t zeroCount = 0;
   while (zeroCount++ < 10) {

@@ -203,6 +203,13 @@ void quatToRPY(
   or_tmp.getRPY(roll, pitch, yaw);
 }
 
+Eigen::MatrixXd differentialTwistCovariance(
+  const Eigen::MatrixXd & current,
+  const Eigen::MatrixXd & previous, const double dt)
+{
+  return (current + previous) / (dt * dt);
+}
+
 void stateToTF(const Eigen::VectorXd & state, tf2::Transform & state_tf)
 {
   state_tf.setOrigin(

@@ -3498,12 +3498,13 @@ bool RosFilter<T>::preparePose(
         // 7e. Now rotate the previous covariance for this measurement to get it
         // into the target frame, and add the current measurement's rotated
         // covariance to the previous measurement's rotated covariance, and
-        // multiply by the time delta.
+        // divide by the squared time delta: the velocity is the difference
+        // over dt.
         Eigen::MatrixXd prev_covar_rotated =
           typed_covariance::rotate<typed_covariance::metre, typed_covariance::radian>(
           previous_measurement_covariances_[topic_name], rot);
-        covariance_rotated =
-          (covariance_rotated.eval() + prev_covar_rotated) * dt;
+        covariance_rotated = ros_filter_utilities::differentialTwistCovariance(
+          covariance_rotated, prev_covar_rotated, dt);
         copyCovariance(
           covariance_rotated, &(twist_ptr->twist.covariance[0]),
           POSE_SIZE);

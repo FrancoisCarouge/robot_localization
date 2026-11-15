@@ -168,6 +168,10 @@ if(BUILD_TESTING)
   ament_add_gtest(filter_base-test test/test_filter_base.cpp)
   target_link_libraries(filter_base-test ${library_name})
 
+  #### ROS FILTER UTILITIES TESTS ####
+  ament_add_gtest(test_ros_filter_utilities test/test_ros_filter_utilities.cpp)
+  target_link_libraries(test_ros_filter_utilities ${library_name})
+
   #### DIAGNOSTICS TESTS ####
   ament_add_gtest_executable(test_filter_base_diagnostics_timestamps
                     test/test_filter_base_diagnostics_timestamps.cpp)
