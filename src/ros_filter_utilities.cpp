@@ -47,6 +47,7 @@
 #include "tf2/LinearMath/Vector3.hpp"
 #include "tf2/time.hpp"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
+#include "typed_covariance.hpp"
 #include <tf2_ros/buffer.hpp>
 
 std::ostream & operator<<(std::ostream & os, const tf2::Vector3 & vec)
@@ -207,7 +208,16 @@ Eigen::MatrixXd differentialTwistCovariance(
   const Eigen::MatrixXd & current,
   const Eigen::MatrixXd & previous, const double dt)
 {
-  return (current + previous) / (dt * dt);
+  using typed_covariance::metre;
+  using typed_covariance::radian;
+  using typed_covariance::second;
+  using Pose = typed_covariance::Covariance<metre, radian>;
+  using Twist = typed_covariance::Covariance<metre / second, radian / second>;
+
+  const auto duration = dt * second;
+  return typed_covariance::untyped(
+    Twist{(typed_covariance::typed<Pose>(current) + typed_covariance::typed<Pose>(previous)) /
+      (duration * duration)});
 }
 
 void stateToTF(const Eigen::VectorXd & state, tf2::Transform & state_tf)
